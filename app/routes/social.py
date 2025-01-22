@@ -9,7 +9,45 @@ from datetime import datetime, timedelta
 
 social_bp = Blueprint('social', __name__)
 
-# Following/Followers
+# Get Followers
+@social_bp.route('/followers', methods=['GET'])
+@jwt_required()
+def get_followers():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get_or_404(current_user_id)
+    
+    # Fetch followers
+    followers = current_user.followers.all()
+    
+    return jsonify({
+        'followers': [{
+            'id': follower.id,
+            'username': follower.username,
+            'email': follower.email,
+            'isFollowingYou': follower.is_following(current_user)
+        } for follower in followers]
+    }), 200
+
+# Get Following
+@social_bp.route('/following', methods=['GET'])
+@jwt_required()
+def get_following():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get_or_404(current_user_id)
+    
+    # Fetch users the current user is following
+    following = current_user.following.all()
+    
+    return jsonify({
+        'following': [{
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'isFollowingYou': user.is_following(current_user)
+        } for user in following]
+    }), 200
+
+# Follow a User
 @social_bp.route('/follow/<int:user_id>', methods=['POST'])
 @jwt_required()
 def follow_user(user_id):
@@ -39,6 +77,7 @@ def follow_user(user_id):
     
     return jsonify({'message': f'Now following {user_to_follow.username}'}), 200
 
+# Unfollow a User
 @social_bp.route('/unfollow/<int:user_id>', methods=['POST'])
 @jwt_required()
 def unfollow_user(user_id):
@@ -119,15 +158,3 @@ def get_leaderboard():
             'total_amount': float(total_amount) if total_amount else 0
         } for user, total_logs, total_amount in leaderboard]
     }), 200
-
-# Helper function to create activity feed entries
-def create_activity(user_id, activity_type, content, related_id=None):
-    activity = ActivityFeed(
-        user_id=user_id,
-        activity_type=activity_type,
-        content=content,
-        related_id=related_id
-    )
-    db.session.add(activity)
-    db.session.commit()
-    return activity

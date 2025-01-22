@@ -221,7 +221,7 @@ export default {
     async fetchAchievements() {
       this.loadingAchievements = true
       try {
-        const response = await axios.get('http://localhost:5000/api/social/achievements')
+        const response = await axios.get('http://localhost:5050/api/social/achievements')
         this.achievements = response.data.achievements
       } catch (error) {
         console.error('Error fetching achievements:', error)
@@ -233,7 +233,7 @@ export default {
     async fetchActivities() {
       this.loadingActivities = true
       try {
-        const response = await axios.get('http://localhost:5000/api/social/feed')
+        const response = await axios.get('http://localhost:5050/api/social/feed')
         this.activities = response.data.activities
       } catch (error) {
         console.error('Error fetching activities:', error)
@@ -246,9 +246,10 @@ export default {
       this.loadingConnections = true
       try {
         const [followersRes, followingRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/social/followers`),
-          axios.get(`http://localhost:5000/api/social/following`)
+          axios.get(`http://localhost:5050/api/social/followers`),
+          axios.get(`http://localhost:5050/api/social/following`)
         ])
+        console.log(followersRes.data, followingRes.data)
         this.followers = followersRes.data.followers
         this.following = followingRes.data.following
         this.followersCount = this.followers.length
@@ -268,10 +269,10 @@ export default {
           .reduce((sum, val) => sum + val, 0)
         
         // You might need to implement these endpoints
-        const initiativesResponse = await axios.get('http://localhost:5000/api/initiatives/joined')
+        const initiativesResponse = await axios.get('http://localhost:5050/api/initiatives/joined')
         this.initiativesCount = initiativesResponse.data.initiatives?.length || 0
         
-        const reviewsResponse = await axios.get('http://localhost:5000/api/businesses/my-reviews')
+        const reviewsResponse = await axios.get('http://localhost:5050/api/businesses/my-reviews')
         this.reviewsCount = reviewsResponse.data.reviews?.length || 0
         
         this.totalContributions = this.achievements.length
@@ -284,7 +285,7 @@ export default {
 
     async followUser(userId) {
       try {
-        await axios.post(`http://localhost:5000/api/social/follow/${userId}`)
+        await axios.post(`http://localhost:5050/api/social/follow/${userId}`)
         await this.fetchConnections()
       } catch (error) {
         console.error('Error following user:', error)
@@ -294,7 +295,7 @@ export default {
 
     async unfollowUser(userId) {
       try {
-        await axios.post(`http://localhost:5000/api/social/unfollow/${userId}`)
+        await axios.post(`http://localhost:5050/api/social/unfollow/${userId}`)
         await this.fetchConnections()
       } catch (error) {
         console.error('Error unfollowing user:', error)
