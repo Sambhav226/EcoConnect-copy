@@ -9,6 +9,25 @@ from datetime import datetime, timedelta
 
 social_bp = Blueprint('social', __name__)
 
+# app/routes/social.py
+@social_bp.route('/all-users', methods=['GET'])
+@jwt_required()
+def get_all_users():
+    current_user_id = int(get_jwt_identity())
+    users = User.query.all()
+    
+    # Exclude the current user from the list
+    users = [user for user in users if user.id != current_user_id]
+    print(users, current_user_id)
+    
+    return jsonify({
+        'users': [{
+            'id': user.id,
+            'username': user.username,
+            'email': user.email
+        } for user in users]
+    }), 200
+
 # Get Followers
 @social_bp.route('/followers', methods=['GET'])
 @jwt_required()
@@ -99,14 +118,15 @@ def unfollow_user(user_id):
 @jwt_required()
 def get_activity_feed():
     current_user_id = get_jwt_identity()
-    current_user = User.query.get_or_404(current_user_id)
-    
-    # Get activities from followed users and self
-    activities = ActivityFeed.query.filter(
-        (ActivityFeed.user_id.in_([user.id for user in current_user.following])) |
-        (ActivityFeed.user_id == current_user_id)
-    ).order_by(ActivityFeed.created_at.desc()).limit(50).all()
-    
+    user_id = request.args.get('user_id')  # Get user_id from query params
+
+    # Fetch activities for the specified user
+    if user_id:
+        activities = ActivityFeed.query.filter_by(user_id=user_id).order_by(ActivityFeed.created_at.desc()).limit(50).all()
+    else:
+        # Default behavior: Fetch activities for the current user
+        activities = ActivityFeed.query.filter_by(user_id=current_user_id).order_by(ActivityFeed.created_at.desc()).limit(50).all()
+
     return jsonify({
         'activities': [activity.to_dict() for activity in activities]
     }), 200
