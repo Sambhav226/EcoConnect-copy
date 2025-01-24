@@ -9,15 +9,15 @@
           <p class="email">{{ user?.email || 'user@ecoconnect.com' }}</p>
           <div class="stats">
             <div class="stat-item">
-              <span class="stat-value">{{ followersCount || '42' }}</span>
+              <span class="stat-value">{{ followersCount }}</span>
               <span class="stat-label">Followers</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value">{{ followingCount || '38' }}</span>
+              <span class="stat-value">{{ followingCount  }}</span>
               <span class="stat-label">Following</span>
             </div>
             <div class="stat-item">
-              <span class="stat-value">{{ totalContributions || '156' }}</span>
+              <span class="stat-value">{{ totalContributions }}</span>
               <span class="stat-label">Contributions</span>
             </div>
           </div>
@@ -119,25 +119,55 @@
                 </div>
               </div>
 
-              <!-- Following Tab -->
-              <div v-else class="connections-list">
-                <div v-if="following?.length === 0" class="empty-state">
-                  Not following anyone yet
-                </div>
-                <div v-else v-for="followedUser in (following || defaultFollowing)" 
-                     :key="followedUser.id" 
-                     class="connection-item">
-                  <div class="connection-info">
-                    <div class="connection-avatar">
-                      {{ followedUser.username[0].toUpperCase() }}
-                    </div>
-                    <span class="username">{{ followedUser.username }}</span>
+                          <!-- Following Tab -->
+            <div v-else class="connections-list">
+              <div v-if="following?.length === 0" class="empty-state">
+                Not following anyone yet
+              </div>
+              <div v-else v-for="followedUser in (following || defaultFollowing)" 
+                  :key="followedUser.id" 
+                  class="connection-item">
+                <div class="connection-info">
+                  <div class="connection-avatar">
+                    {{ followedUser.username[0].toUpperCase() }}
                   </div>
-                  <button @click="unfollowUser(followedUser.id)" 
-                          class="unfollow-btn">
-                    Unfollow
-                  </button>
+                  <span class="username">{{ followedUser.username }}</span>
                 </div>
+                <!-- Remove the Unfollow button -->
+              </div>
+            </div>
+            </div>
+          </div>
+
+          <!-- All Users Section -->
+          <div class="card-section all-users-section">
+            <h3>All Users</h3>
+            <div v-if="loadingAllUsers" class="loading">
+              Loading users...
+            </div>
+            <div v-else-if="allUsers?.length === 0" class="empty-state">
+              No users found
+            </div>
+            <div v-else class="connections-list">
+              <div v-for="user in allUsers" :key="user.id" class="connection-item">
+                <div class="connection-info">
+                  <div class="connection-avatar">
+                    {{ user.username[0].toUpperCase() }}
+                  </div>
+                  <span class="username">{{ user.username }}</span>
+                </div>
+                <button 
+                  v-if="user.isFollowingYou" 
+                  @click="unfollowUser(user.id)" 
+                  class="unfollow-btn">
+                  Unfollow
+                </button>
+                <button 
+                  v-else 
+                  @click="followUser(user.id)" 
+                  class="follow-btn">
+                  Follow
+                </button>
               </div>
             </div>
           </div>
@@ -185,6 +215,8 @@ export default {
   name: 'ProfileView',
   data() {
     return {
+      allUsers: [], // Add this line
+      loadingAllUsers: false, // Add this line      
       user: null,
       achievements: [],
       activities: [],
@@ -214,14 +246,30 @@ export default {
         this.fetchAchievements(),
         this.fetchActivities(),
         this.fetchConnections(),
-        this.fetchStats()
+        this.fetchStats(),
+        this.fetchAllUsers()
       ])
     },
+
+    async fetchAllUsers() {
+    this.loadingAllUsers = true;
+    try {
+      const response = await axios.get('http://localhost:5050/api/social/all-users');
+      this.allUsers = response.data.users.map(user => ({
+        ...user,
+        isFollowingYou: this.following.some(f => f.id === user.id) // Check if the user is being followed
+      }));
+    } catch (error) {
+      console.error('Error fetching all users:', error);
+    } finally {
+      this.loadingAllUsers = false;
+    }
+  },
 
     async fetchAchievements() {
       this.loadingAchievements = true
       try {
-        const response = await axios.get('http://localhost:5000/api/social/achievements')
+        const response = await axios.get('http://localhost:5050/api/social/achievements')
         this.achievements = response.data.achievements
       } catch (error) {
         console.error('Error fetching achievements:', error)
@@ -231,14 +279,15 @@ export default {
     },
 
     async fetchActivities() {
-      this.loadingActivities = true
+      this.loadingActivities = true;
       try {
-        const response = await axios.get('http://localhost:5000/api/social/feed')
-        this.activities = response.data.activities
+        const currentUserId = this.user.id; // Get the current user's ID
+        const response = await axios.get(`http://localhost:5050/api/social/feed?user_id=${currentUserId}`);
+        this.activities = response.data.activities; // Filtered activities for the current user
       } catch (error) {
-        console.error('Error fetching activities:', error)
+        console.error('Error fetching activities:', error);
       } finally {
-        this.loadingActivities = false
+        this.loadingActivities = false;
       }
     },
 
@@ -246,9 +295,10 @@ export default {
       this.loadingConnections = true
       try {
         const [followersRes, followingRes] = await Promise.all([
-          axios.get(`http://localhost:5000/api/social/followers`),
-          axios.get(`http://localhost:5000/api/social/following`)
+          axios.get(`http://localhost:5050/api/social/followers`),
+          axios.get(`http://localhost:5050/api/social/following`)
         ])
+        console.log(followersRes.data, followingRes.data)
         this.followers = followersRes.data.followers
         this.following = followingRes.data.following
         this.followersCount = this.followers.length
@@ -268,10 +318,10 @@ export default {
           .reduce((sum, val) => sum + val, 0)
         
         // You might need to implement these endpoints
-        const initiativesResponse = await axios.get('http://localhost:5000/api/initiatives/joined')
+        const initiativesResponse = await axios.get('http://localhost:5050/api/initiatives/joined')
         this.initiativesCount = initiativesResponse.data.initiatives?.length || 0
         
-        const reviewsResponse = await axios.get('http://localhost:5000/api/businesses/my-reviews')
+        const reviewsResponse = await axios.get('http://localhost:5050/api/businesses/my-reviews')
         this.reviewsCount = reviewsResponse.data.reviews?.length || 0
         
         this.totalContributions = this.achievements.length
@@ -284,7 +334,7 @@ export default {
 
     async followUser(userId) {
       try {
-        await axios.post(`http://localhost:5000/api/social/follow/${userId}`)
+        await axios.post(`http://localhost:5050/api/social/follow/${userId}`)
         await this.fetchConnections()
       } catch (error) {
         console.error('Error following user:', error)
@@ -294,7 +344,7 @@ export default {
 
     async unfollowUser(userId) {
       try {
-        await axios.post(`http://localhost:5000/api/social/unfollow/${userId}`)
+        await axios.post(`http://localhost:5050/api/social/unfollow/${userId}`)
         await this.fetchConnections()
       } catch (error) {
         console.error('Error unfollowing user:', error)
@@ -588,6 +638,22 @@ export default {
   color: #fff;
   font-size: 1.4em;
   font-weight: 500;
+}
+
+/* All Users Section */
+.all-users-section {
+  margin-top: 2rem;
+}
+
+/* Disabled Unfollow Button */
+.unfollow-btn:disabled {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.3);
+  cursor: not-allowed;
+}
+
+.unfollow-btn:disabled:hover {
+  transform: none;
 }
 
 /* Loading and Empty States */

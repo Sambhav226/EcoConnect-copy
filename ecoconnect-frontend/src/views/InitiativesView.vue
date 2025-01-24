@@ -214,7 +214,7 @@
                     Join Initiative
                   </button>
                   <div v-else class="joined-status">
-                    ✓ Joined
+                    ✓ Already Joined
                   </div>
                 </div>
               </div>
@@ -337,7 +337,7 @@ export default {
       this.isJoining = true
       try {
         await axios.post(`http://localhost:5050/api/initiatives/${id}/join`)
-        await this.fetchInitiatives()
+        await this.fetchInitiatives() // Refresh the list of initiatives
         alert('Successfully joined the initiative!')
       } catch (error) {
         console.error('Error joining initiative:', error)
@@ -364,7 +364,7 @@ export default {
     },
 
     hasJoined(initiative) {
-      return initiative.participants?.includes(this.currentUser.id)
+      return initiative.participants?.some(participant => participant.user_id === this.currentUser.id);
     },
 
     getParticipantCount(initiative) {
@@ -733,7 +733,8 @@ label {
 }
 
 .join-btn:disabled {
-  opacity: 0.7;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
   cursor: not-allowed;
   transform: none;
 }

@@ -9,7 +9,64 @@ from datetime import datetime, timedelta
 
 social_bp = Blueprint('social', __name__)
 
-# Following/Followers
+# app/routes/social.py
+@social_bp.route('/all-users', methods=['GET'])
+@jwt_required()
+def get_all_users():
+    current_user_id = int(get_jwt_identity())
+    users = User.query.all()
+    
+    # Exclude the current user from the list
+    users = [user for user in users if user.id != current_user_id]
+    print(users, current_user_id)
+    
+    return jsonify({
+        'users': [{
+            'id': user.id,
+            'username': user.username,
+            'email': user.email
+        } for user in users]
+    }), 200
+
+# Get Followers
+@social_bp.route('/followers', methods=['GET'])
+@jwt_required()
+def get_followers():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get_or_404(current_user_id)
+    
+    # Fetch followers
+    followers = current_user.followers.all()
+    
+    return jsonify({
+        'followers': [{
+            'id': follower.id,
+            'username': follower.username,
+            'email': follower.email,
+            'isFollowingYou': follower.is_following(current_user)
+        } for follower in followers]
+    }), 200
+
+# Get Following
+@social_bp.route('/following', methods=['GET'])
+@jwt_required()
+def get_following():
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get_or_404(current_user_id)
+    
+    # Fetch users the current user is following
+    following = current_user.following.all()
+    
+    return jsonify({
+        'following': [{
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'isFollowingYou': user.is_following(current_user)
+        } for user in following]
+    }), 200
+
+# Follow a User
 @social_bp.route('/follow/<int:user_id>', methods=['POST'])
 @jwt_required()
 def follow_user(user_id):
@@ -39,6 +96,7 @@ def follow_user(user_id):
     
     return jsonify({'message': f'Now following {user_to_follow.username}'}), 200
 
+# Unfollow a User
 @social_bp.route('/unfollow/<int:user_id>', methods=['POST'])
 @jwt_required()
 def unfollow_user(user_id):
@@ -60,14 +118,15 @@ def unfollow_user(user_id):
 @jwt_required()
 def get_activity_feed():
     current_user_id = get_jwt_identity()
-    current_user = User.query.get_or_404(current_user_id)
-    
-    # Get activities from followed users and self
-    activities = ActivityFeed.query.filter(
-        (ActivityFeed.user_id.in_([user.id for user in current_user.following])) |
-        (ActivityFeed.user_id == current_user_id)
-    ).order_by(ActivityFeed.created_at.desc()).limit(50).all()
-    
+    user_id = request.args.get('user_id')  # Get user_id from query params
+
+    # Fetch activities for the specified user
+    if user_id:
+        activities = ActivityFeed.query.filter_by(user_id=user_id).order_by(ActivityFeed.created_at.desc()).limit(50).all()
+    else:
+        # Default behavior: Fetch activities for the current user
+        activities = ActivityFeed.query.filter_by(user_id=current_user_id).order_by(ActivityFeed.created_at.desc()).limit(50).all()
+
     return jsonify({
         'activities': [activity.to_dict() for activity in activities]
     }), 200
@@ -119,15 +178,3 @@ def get_leaderboard():
             'total_amount': float(total_amount) if total_amount else 0
         } for user, total_logs, total_amount in leaderboard]
     }), 200
-
-# Helper function to create activity feed entries
-def create_activity(user_id, activity_type, content, related_id=None):
-    activity = ActivityFeed(
-        user_id=user_id,
-        activity_type=activity_type,
-        content=content,
-        related_id=related_id
-    )
-    db.session.add(activity)
-    db.session.commit()
-    return activity

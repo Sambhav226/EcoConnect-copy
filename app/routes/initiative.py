@@ -8,6 +8,36 @@ from app.utils.activity import create_activity
 
 initiative_bp = Blueprint('initiative', __name__)
 
+# Get Initiatives Joined by the Current User
+@initiative_bp.route('/joined', methods=['GET'])
+@jwt_required()
+def get_joined_initiatives():
+    current_user_id = int(get_jwt_identity())
+    
+    try:
+        # Fetch all initiatives the user has joined
+        joined_initiatives = InitiativeParticipant.query.filter_by(
+            user_id=current_user_id,
+            status='joined'
+        ).all()
+        
+        # Extract initiative IDs from the joined initiatives
+        initiative_ids = [participant.initiative_id for participant in joined_initiatives]
+        
+        # Fetch the full details of the initiatives
+        initiatives = Initiative.query.filter(Initiative.id.in_(initiative_ids)).all()
+        
+        # Sort initiatives by event date
+        initiatives = sorted(initiatives, key=lambda x: x.event_date)
+        print(initiatives)
+        
+        return jsonify({
+            'initiatives': [initiative.to_dict() for initiative in initiatives]
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'error': f'Error fetching joined initiatives: {str(e)}'}), 500
+
 # Updated create_initiative function
 @initiative_bp.route('', methods=['POST'])
 @jwt_required()
